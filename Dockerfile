@@ -1,16 +1,16 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
+# Set working directory
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    curl \
-    && pip install flask \
-    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
+# Copy your code into the container
+COPY . .
 
-COPY app.py .
-COPY overlay.png .
+# Install dependencies
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-EXPOSE 5000
-CMD ["python", "app.py"]
+# Expose port (must match what's used in Render)
+EXPOSE 10000
+
+# Start the FastAPI server
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
