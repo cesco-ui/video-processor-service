@@ -2,3 +2,4 @@ fastapi
 uvicorn
 ffmpeg-python
 yt-dlp
+python-multipart
