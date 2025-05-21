@@ -9,12 +9,16 @@ app = FastAPI()
 
 @app.post("/process")
 async def process_video(video_url: str = Form(...)):
-    # Generate unique file names
+    if not video_url or not video_url.strip():
+        return {"error": "No video URL provided to process."}
+
+    # Create unique filename
     filename = str(uuid.uuid4())
     input_path = f"/tmp/{filename}.mp4"
     output_path = f"/tmp/{filename}_branded.mp4"
+    overlay_path = "overlay.png"
 
-    # Download the video using yt-dlp
+    # Step 1: Download video using yt-dlp
     download_cmd = [
         "yt-dlp",
         "-f", "mp4",
@@ -27,12 +31,10 @@ async def process_video(video_url: str = Form(...)):
     except subprocess.CalledProcessError as e:
         return {"error": f"Failed to download video: {e}"}
 
-    # Path to your overlay image
-    overlay_path = "overlay.png"
-
-    # Re-encode with FFmpeg to ensure compatibility (H.264 + AAC)
+    # Step 2: Apply overlay using ffmpeg
     ffmpeg_cmd = [
         "ffmpeg",
+        "-y",  # overwrite if needed
         "-i", input_path,
         "-i", overlay_path,
         "-filter_complex", "overlay=0:0",
@@ -48,14 +50,15 @@ async def process_video(video_url: str = Form(...)):
     try:
         subprocess.run(ffmpeg_cmd, check=True)
     except subprocess.CalledProcessError as e:
-        return {"error": f"FFmpeg processing failed: {e}"}
+        return {"error": f"FFmpeg failed: {e}"}
 
-    return FileResponse(
-        path=output_path,
-        filename="output.mp4",
-        media_type="video/mp4"
-    )
+    # Step 3: Validate that video file actually exists and isn't empty
+    if not os.path.exists(output_path) or os.path.getsize(output_path) < 500000:
+        return {"error": "Output file is missing or too small — possible FFmpeg failure."}
+
+    return FileResponse(path=output_path, filename="output.mp4", media_type="video/mp4")
+
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 5000))
     uvicorn.run(app, host="0.0.0.0", port=port)
